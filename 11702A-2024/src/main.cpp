@@ -179,6 +179,13 @@ task rc_auto_loop_task_Controller1(rc_auto_loop_function_Controller1);
 
 #pragma endregion VEXcode Generated Robot Configuration
 
+void userControl(void) {
+  Brain.Screen.clearScreen();
+  // place driver control in this while loop
+  while (true) {
+    wait(20, msec);
+  }
+}
 
 void auton(void) {
   Brain.Screen.clearScreen();
@@ -191,14 +198,6 @@ void auton(void) {
 
   Brain.Screen.clearScreen();
   Brain.Screen.print("autonomous code done");
-}
-
-void userControl(void) {
-  Brain.Screen.clearScreen();
-  // place driver control in this while loop
-  while (true) {
-    wait(20, msec);
-  }
 }
 
 int main() {
@@ -219,7 +218,8 @@ int main() {
 
   intake.setVelocity(100, percent);
   intake.setStopping(coast);
-
+  
+  
   // Prevent main from exiting with an infinite loop.
   while (true) {
     wait(100, msec);
@@ -227,19 +227,16 @@ int main() {
 }
 
 
-void pre_auton(void) {
-  vexcodeInit();
+//Tune Here
+double kp = 0.001;   // Increase proportional gain for main control loop
+double ki = 0.001;
+double kd = 0.0005;  // Decrease derivative gain for main control loop
 
-  // All activities that occur before the competition starts
+double turnkp = 0.0005;  // Introduce proportional gain for turn control loop
+double turnki = 0.001;
+double turnkd = 0.001;
 
-}
-
-double kp = 0.0005;
-double ki = 0.0;
-double kd = 0.0;
-double turnkp = 0.0;
-double turnki = 0.0;
-double turnkd = 0.0;
+//Autonomous settings
 int desiredValue = 200;
 int desiredturnValue = 0;
 
@@ -247,7 +244,7 @@ int desiredturnValue = 0;
 
 int error; //sensor value - disired value : positional value
 int previouserror = 0; // position 20 milliseconds ago
-int derivative;  // difference between error and previous error : Speed
+int derivitive;  // difference between error and previous error : Speed
 int totalerror = 0; // totalerror = totalerror + error
 
 
@@ -260,69 +257,55 @@ bool resetdrivesensor = false;
 
 
 // variabels motified for use
- bool enabledrivepid = true;
+bool enabledrivepid = true;
 
 int drivepid(){
   
   while(enabledrivepid){
     
 
-    if (resetdrivesensor) {
+   if (resetdrivesensor) {
       resetdrivesensor = false;
-      LeftMotor.setPosition(0, degrees);
-      RightMotor.setPosition(0, degrees);
+      LeftDriveSmart.setPosition(0, degrees);
+      RightDriveSmart.setPosition(0, degrees);
     }
 
 
 
 
     //get the position of both motors
-    int Leftmotorposition = LeftMotor.position(degrees);
-    int Rightmotorposition = RightMotor.position(degrees);
-
-
-    /////////////////////////////////////////////////////
-    // lateral movement pid
-    ////////////////////////////////////////////////////////////////////////////////////////////
-    // mean of the two variables
+    int Leftmotorposition = LeftDriveSmart.position(degrees);
+    int Rightmotorposition = RightDriveSmart.position(degrees);
     int averageposition = Leftmotorposition + Rightmotorposition/2;
    
     error = averageposition - desiredValue;
 
-    // derivitive
-    derivative = error - previouserror;
+    
+    derivitive = error - previouserror;
 
-    //Intigral
-    //totalerror = error;
+    
+    totalerror = error;
 
-    double lateralmotorPower = (error * kp + derivative + kd + totalerror + ki) / 12.0;
-    //////////////////////////////////////////////////////////////////////////////////
-
-
-    /////////////////////////////////////////////////////
-    // turning movement pid
-    ////////////////////////////////////////////////////////////////////////////////////////////
+    double lateralmotorPower = (error * kp + derivitive + kd + totalerror + ki) / 12.0;
+ 
     int turnDifference = Leftmotorposition - Rightmotorposition;
    
     turnerror = turnDifference - desiredturnValue;
 
-    // derivitive
-    turnderivative = turnerror - turnpreviouserror;
+    
+    turnderivitive = turnerror - turnpreviouserror;
 
-    //Intigral
-    //turntotalerror = turnerror;
+
+    turntotalerror = turnerror;
 
     double turnmotorPower = (turnerror * turnkp + turnderivitive + turnkd + turntotalerror + turnki) / 12.0;
-    //////////////////////////////////////////////////////////////////////////////////
-
-
-    /////////////////////////////////////////////////////////////////////////////////
-    LeftMotor.spin(forward, lateralmotorPower + turnmotorPower, voltageUnits::volt);
-    RightMotor.spin(forward, lateralmotorPower - turnmotorPower, voltageUnits::volt);
+    \
+    LeftDriveSmart.spin(forward, lateralmotorPower + turnmotorPower, voltageUnits::volt);
+    RightDriveSmart.spin(forward, lateralmotorPower - turnmotorPower, voltageUnits::volt);
 
 
 
-    //code
+    
     previouserror = error;
     turnpreviouserror = turnerror;
     vex::task::sleep(20);
@@ -330,20 +313,4 @@ int drivepid(){
   }
   
   return 1;
-}
-
-void autonomous(void) {
-
-  vex::task Tea(drivepid);
-
-  resetdrivesensor = true;
-  desiredValue = 300;
-  desiredturnValue = 600;
-
-  vex::task::sleep(100);
-
-  resetdrivesensor = true;
-  desiredValue = 300;
-  desiredturnValue = 300;
-
 }
