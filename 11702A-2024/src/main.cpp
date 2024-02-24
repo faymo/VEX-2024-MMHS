@@ -225,3 +225,125 @@ int main() {
     wait(100, msec);
   }
 }
+
+
+void pre_auton(void) {
+  vexcodeInit();
+
+  // All activities that occur before the competition starts
+
+}
+
+double kp = 0.0005;
+double ki = 0.0;
+double kd = 0.0;
+double turnkp = 0.0;
+double turnki = 0.0;
+double turnkd = 0.0;
+int desiredValue = 200;
+int desiredturnValue = 0;
+
+
+
+int error; //sensor value - disired value : positional value
+int previouserror = 0; // position 20 milliseconds ago
+int derivative;  // difference between error and previous error : Speed
+int totalerror = 0; // totalerror = totalerror + error
+
+
+int turnerror; //sensor value - disired value : positional value
+int turnpreviouserror = 0; // position 20 milliseconds ago
+int turnderivitive;  // difference between error and previous error : Speed
+int turntotalerror = 0; // totalerror = totalerror + error
+
+bool resetdrivesensor = false;
+
+
+// variabels motified for use
+ bool enabledrivepid = true;
+
+int drivepid(){
+  
+  while(enabledrivepid){
+    
+
+    if (resetdrivesensor) {
+      resetdrivesensor = false;
+      LeftMotor.setPosition(0, degrees);
+      RightMotor.setPosition(0, degrees);
+    }
+
+
+
+
+    //get the position of both motors
+    int Leftmotorposition = LeftMotor.position(degrees);
+    int Rightmotorposition = RightMotor.position(degrees);
+
+
+    /////////////////////////////////////////////////////
+    // lateral movement pid
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    // mean of the two variables
+    int averageposition = Leftmotorposition + Rightmotorposition/2;
+   
+    error = averageposition - desiredValue;
+
+    // derivitive
+    derivative = error - previouserror;
+
+    //Intigral
+    //totalerror = error;
+
+    double lateralmotorPower = (error * kp + derivative + kd + totalerror + ki) / 12.0;
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    /////////////////////////////////////////////////////
+    // turning movement pid
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    int turnDifference = Leftmotorposition - Rightmotorposition;
+   
+    turnerror = turnDifference - desiredturnValue;
+
+    // derivitive
+    turnderivative = turnerror - turnpreviouserror;
+
+    //Intigral
+    //turntotalerror = turnerror;
+
+    double turnmotorPower = (turnerror * turnkp + turnderivitive + turnkd + turntotalerror + turnki) / 12.0;
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    /////////////////////////////////////////////////////////////////////////////////
+    LeftMotor.spin(forward, lateralmotorPower + turnmotorPower, voltageUnits::volt);
+    RightMotor.spin(forward, lateralmotorPower - turnmotorPower, voltageUnits::volt);
+
+
+
+    //code
+    previouserror = error;
+    turnpreviouserror = turnerror;
+    vex::task::sleep(20);
+
+  }
+  
+  return 1;
+}
+
+void autonomous(void) {
+
+  vex::task Tea(drivepid);
+
+  resetdrivesensor = true;
+  desiredValue = 300;
+  desiredturnValue = 600;
+
+  vex::task::sleep(100);
+
+  resetdrivesensor = true;
+  desiredValue = 300;
+  desiredturnValue = 300;
+
+}
