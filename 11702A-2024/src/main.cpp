@@ -35,18 +35,21 @@ brain Brain;
 
 
 // Robot configuration code.
-motor leftMotorA = motor(PORT4, ratio6_1, false);
-motor leftMotorB = motor(PORT5, ratio6_1, true);
-motor leftMotorC = motor(PORT6, ratio6_1, false);
+motor leftMotorA = motor(PORT4, ratio6_1, true);
+motor leftMotorB = motor(PORT5, ratio6_1, false);
+motor leftMotorC = motor(PORT6, ratio6_1, true);
 motor_group LeftDriveSmart = motor_group(leftMotorA, leftMotorB, leftMotorC);
-motor rightMotorA = motor(PORT1, ratio6_1, true);
-motor rightMotorB = motor(PORT2, ratio6_1, false);
-motor rightMotorC = motor(PORT3, ratio6_1, true);
+motor rightMotorA = motor(PORT1, ratio6_1, false);
+motor rightMotorB = motor(PORT2, ratio6_1, true);
+motor rightMotorC = motor(PORT3, ratio6_1, false);
 motor_group RightDriveSmart = motor_group(rightMotorA, rightMotorB, rightMotorC);
 inertial DrivetrainInertial = inertial(PORT11);
 smartdrive Drivetrain = smartdrive(LeftDriveSmart, RightDriveSmart, DrivetrainInertial, 319.19, 320, 40, mm, 0.42857142857142855);
 
 controller Controller1 = controller(primary);
+
+motor intake = motor(PORT20, ratio6_1, true);
+motor catapult = motor(PORT19, ratio6_1, true);
 
 void calibrateDrivetrain() {
   wait(200, msec);
@@ -75,6 +78,8 @@ void playVexcodeSound(const char *soundName) {
 // define variable for remote controller enable/disable
 bool RemoteControlCodeEnabled = true;
 // define variables used for controlling motors based on controller inputs
+bool Controller1LeftShoulderControlMotorsStopped = true;
+bool Controller1RightShoulderControlMotorsStopped = true;
 bool DrivetrainLNeedsToBeStopped_Controller1 = true;
 bool DrivetrainRNeedsToBeStopped_Controller1 = true;
 
@@ -97,8 +102,8 @@ int rc_auto_loop_function_Controller1() {
       // calculate the drivetrain motor velocities from the controller joystick axies
       // left = Axis3 + Axis1
       // right = Axis3 - Axis1
-      int drivetrainLeftSideSpeed = Controller1.Axis1.position() + Controller1.Axis3.position();
-      int drivetrainRightSideSpeed = Controller1.Axis1.position() - Controller1.Axis3.position();
+      int drivetrainLeftSideSpeed = Controller1.Axis3.position() + Controller1.Axis1.position();
+      int drivetrainRightSideSpeed = Controller1.Axis3.position() - Controller1.Axis1.position();
       
       // check if the value is inside of the deadband range
       if (drivetrainLeftSideSpeed < 5 && drivetrainLeftSideSpeed > -5) {
@@ -136,6 +141,32 @@ int rc_auto_loop_function_Controller1() {
       if (DrivetrainRNeedsToBeStopped_Controller1) {
         RightDriveSmart.setVelocity(drivetrainRightSideSpeed, percent);
         RightDriveSmart.spin(forward);
+      }
+
+      // check the ButtonL1/ButtonL2 status to control catapult
+      if (Controller1.ButtonL1.pressing()) {
+        catapult.spin(reverse);
+        Controller1LeftShoulderControlMotorsStopped = false;
+      } else if (Controller1.ButtonL2.pressing()) {
+        catapult.spin(forward);
+        Controller1LeftShoulderControlMotorsStopped = false;
+      } else if (!Controller1LeftShoulderControlMotorsStopped) {
+        catapult.stop();
+        // set the toggle so that we don't constantly tell the motor to stop when the buttons are released
+        Controller1LeftShoulderControlMotorsStopped = true;
+      }
+      
+      // check the ButtonR1/ButtonR2 status to control intake
+      if (Controller1.ButtonR1.pressing()) {
+        intake.spin(reverse);
+        Controller1RightShoulderControlMotorsStopped = false;
+      } else if (Controller1.ButtonR2.pressing()) {
+        intake.spin(forward);
+        Controller1RightShoulderControlMotorsStopped = false;
+      } else if (!Controller1RightShoulderControlMotorsStopped) {
+        intake.stop();
+        // set the toggle so that we don't constantly tell the motor to stop when the buttons are released
+        Controller1RightShoulderControlMotorsStopped = true;
       }
     }
     // wait before repeating the process
@@ -182,9 +213,15 @@ int main() {
   Drivetrain.setDriveVelocity(100, percent);
   Drivetrain.setStopping(brake);
 
+  // setting motor veclocity
+  catapult.setVelocity(100, percent);
+  catapult.setStopping(coast);
+
+  intake.setVelocity(100, percent);
+  intake.setStopping(coast);
+
   // Prevent main from exiting with an infinite loop.
   while (true) {
     wait(100, msec);
   }
 }
-
